@@ -1,12 +1,28 @@
+const os = require('os');
 const TelegramBot = require('node-telegram-bot-api');
 
 class TelegramService {
     constructor() {
-        if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_CHAT_ID) {
+        const hostname = os.hostname();
+        const isLocal = hostname.includes('MRD01');
+
+        if (isLocal) {
+            // локальная среда
+            this.token = process.env.TELEGRAM_BOT_TOKEN_MY || '';
+            this.chatId = process.env.TELEGRAM_CHAT_ID_MY || '';
+            console.log('✅ Локальная среда: используются TELEGRAM_BOT_TOKEN_MY и TELEGRAM_CHAT_ID_MY');
+        } else {
+            // серверная среда
+            this.token = process.env.TELEGRAM_BOT_TOKEN || '';
+            this.chatId = process.env.TELEGRAM_CHAT_ID || '';
+        }
+
+        
+
+        if (!this.token || !this.chatId) {
             console.warn('⚠️ TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы. Используйте .env');
         }
-        this.token = process.env.TELEGRAM_BOT_TOKEN || '';
-        this.chatId = process.env.TELEGRAM_CHAT_ID || '';
+
         this.bot = new TelegramBot(this.token, { polling: false });
     }
 
