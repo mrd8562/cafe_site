@@ -53,6 +53,11 @@ app.post('/api/order', async (req, res) => {
         const payload = req.body || {};
 
         // Прокидываем все поля, ожидаемые фронтом, и готовим items для сервиса
+        // Бизнес-правила доставки
+        const DELIVERY_MIN_ORDER = 20; // руб.
+        const DELIVERY_FREE_FROM = 40; // руб.
+        const DELIVERY_FEE = 8; // руб.
+
         const orderData = {
             customerName: payload.name || '',
             phone: payload.phone || '',
@@ -90,20 +95,34 @@ app.post('/api/order', async (req, res) => {
                     toppings: []
                 };
             }) : [],
-            totalAmount: (() => {
-                const str = payload.total?.toString() || '0';
-                // Удаляем все нецифровые символы кроме точек и запятых
-                let cleaned = str.replace(/[^\d.,]/g, '');
-                // Если есть несколько точек, оставляем только первую
-                if ((cleaned.match(/\./g) || []).length > 1) {
-                    const parts = cleaned.split('.');
-                    cleaned = parts[0] + '.' + parts.slice(1).join('');
-                }
-                // Заменяем запятую на точку
-                cleaned = cleaned.replace(',', '.');
-                return Number(cleaned) || 0;
-            })()
+            // Заполним далее после расчётов
+            totalAmount: 0,
+            deliveryFee: 0
         };
+
+        // Расчёт суммы позиций
+        const itemsSubtotal = (orderData.items || []).reduce((sum, it) => {
+            const qty = Number(it.quantity || 1);
+            const price = Number(it.price || 0);
+            return sum + qty * price;
+        }, 0);
+
+        const isDelivery = (orderData.type || '').includes('Доставка');
+        if (isDelivery) {
+            // Проверка минимального заказа для доставки
+            if (itemsSubtotal < DELIVERY_MIN_ORDER) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Минимальный заказ для доставки — ${DELIVERY_MIN_ORDER} руб.`
+                });
+            }
+            // Расчёт стоимости доставки
+            orderData.deliveryFee = itemsSubtotal >= DELIVERY_FREE_FROM ? 0 : DELIVERY_FEE;
+        } else {
+            orderData.deliveryFee = 0;
+        }
+
+        orderData.totalAmount = Number((itemsSubtotal + (orderData.deliveryFee || 0)).toFixed(2));
 
         const ok = await telegramService.sendOrderNotification(orderData);
         if (!ok) {

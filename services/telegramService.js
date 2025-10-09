@@ -51,7 +51,8 @@ class TelegramService {
             paymentType,
             comment,
             items = [],
-            totalAmount
+            totalAmount,
+            deliveryFee = 0
         } = orderData;
 
         let message = `<b>🎉 НОВЫЙ ЗАКАЗ!</b>\n\n`;
@@ -114,6 +115,11 @@ class TelegramService {
             }
         });
 
+        if (Number(deliveryFee) > 0) {
+            message += `\n<b>🚚 Доставка:</b> ${Number(deliveryFee).toFixed(2)} ₽`;
+        } else if ((type || '').includes('Доставка')) {
+            message += `\n<b>🚚 Доставка:</b> бесплатно`;
+        }
         message += `\n<b>💰 Итого:</b> ${Number(totalAmount || 0).toFixed(2)} ₽\n`;
         message += `<b>⏰ Время заявки:</b> ${new Date().toLocaleString('ru-RU')}`;
 
