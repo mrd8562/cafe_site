@@ -67,13 +67,51 @@ class TelegramService {
         if (comment) message += `\n<b>💬 Комментарий:</b> ${comment}\n`;
 
         message += `\n<b>🛒 Позиции:</b>\n`;
-        items.forEach((item, index) => {
-            const lineTotal = (Number(item.price || 0) * Number(item.quantity || 1)).toFixed(2);
+
+        // Группируем начинки как подэлементы к предыдущему базовому блюду (у которого есть вес)
+        const groups = [];
+        let currentGroup = null;
+        (items || []).forEach((it) => {
+            const isBaseDish = Number(it.weight || 0) > 0;
+            if (isBaseDish) {
+                currentGroup = { base: it, toppings: [] };
+                groups.push(currentGroup);
+            } else if (currentGroup) {
+                currentGroup.toppings.push(it);
+            } else {
+                // Начинка без базового блюда ранее — считаем отдельной позицией
+                groups.push({ base: it, toppings: [] });
+            }
+        });
+
+        groups.forEach((group, idx) => {
+            const item = group.base;
+            const baseQty = Number(item.quantity || 1);
+            const basePrice = Number(item.price || 0);
+            const baseTotalNum = basePrice * baseQty;
+            const lineTotal = baseTotalNum.toFixed(2);
             const weightText = item.weight ? `, ${item.weight} г` : '';
-            const toppingsText = Array.isArray(item.toppings) && item.toppings.length > 0
-                ? `\n   ➕ ${item.toppings.map(t => `${t.name}${Number(t.quantity || 1) > 1 ? ` (${t.quantity})` : ''}`).join(', ')}`
-                : '';
-            message += `${index + 1}. ${item.name}${weightText} — ${item.quantity} × ${Number(item.price || 0).toFixed(2)} ₽ = ${lineTotal} ₽${toppingsText}\n`;
+
+            let toppingsText = '';
+            let toppingsSum = 0;
+            if (group.toppings.length > 0) {
+                const list = group.toppings.map(t => {
+                    const qty = Number(t.quantity || 1);
+                    const price = Number(t.price || 0);
+                    const unit = price.toFixed(2);
+                    const extended = (price * qty).toFixed(2);
+                    toppingsSum += price * qty;
+                    return `➕ ${t.name} — ${qty} × ${unit} ₽ = ${extended} ₽`;
+                }).join('\n   ');
+                toppingsText = `\n   ${list}`;
+            }
+
+            message += `${idx + 1}. ${item.name}${weightText} — ${item.quantity} × ${Number(item.price || 0).toFixed(2)} ₽ = ${lineTotal} ₽${toppingsText}\n`;
+            if (group.toppings.length > 0) {
+                // Итог по группе: базовое блюдо + начинки
+                const groupTotal = baseTotalNum + toppingsSum;
+                message += ` 🟰 Общая цена с начинкой: ${groupTotal.toFixed(2)} ₽\n---------------------------------------\n`;
+            }
         });
 
         message += `\n<b>💰 Итого:</b> ${Number(totalAmount || 0).toFixed(2)} ₽\n`;

@@ -77,7 +77,8 @@ app.post('/api/order', async (req, res) => {
                         imageUrl: order.dish.imageUrl,
                         toppings: Array.isArray(order.toppings) ? order.toppings.map(t => ({
                             name: t.name,
-                            quantity: Number(t.quantity || 1)
+                            quantity: Number(t.quantity || 1),
+                            price: Number(t.price || 0)
                         })) : []
                     };
                 }
