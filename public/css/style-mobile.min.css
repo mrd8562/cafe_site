@@ -328,10 +328,6 @@ h6 {
   color: #000;
 }
 
-.search__item--with-photo {
-  padding-left: 60px;
-  min-height: 56px;
-}
 
 .search__title {
   font: 700 16px/20px "sf pro display";
@@ -2059,6 +2055,7 @@ img.lazyloaded {
 .tdrop::-webkit-scrollbar-track {
   background: #fff;
 }
+
 
 html {
   background: #f1f1f1;
@@ -9766,13 +9763,6 @@ img.lazyloaded {
   margin: 0 1px 0 0;
 }
 
-.tdrop__option {
-  border-bottom: 1px solid #f4f4f4;
-  margin: -1px 0 0 0;
-  cursor: pointer;
-  padding: 11px 20px 10px 20px;
-}
-
 .tdrop__option--highlight {
   background: #f5f5f5;
   border-bottom-color: transparent;
@@ -14013,4 +14003,76 @@ textarea.ccm__textarea--free {
 
 .comp__about-contents :last-child {
   margin: 0;
+}
+
+/* Стили для мобильного поиска */
+.search__no-results {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font: 15px/17px "sf pro display";
+}
+
+.search__item:hover {
+  background-color: #f8f9fa;
+}
+
+.search__item:last-child {
+  border-bottom: none;
+}
+
+.tdrop__option:hover {
+  background-color: #f8f9fa;
+}
+
+.tdrop__option:last-child {
+  border-bottom: none;
+}
+
+/* Стили для подсветки блюда при поиске на мобильной версии */
+.ddish--highlight {
+  box-shadow: 0 0 15px rgba(0, 174, 239, 0.4) !important;
+  transition: box-shadow 0.3s ease;
+}
+
+/* Улучшенная анимация скролла */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Стили для текста в блоке успеха */
+.csuccess__text {
+  font: 400 19px / 26px "sf pro display";
+  color: #333;
+  text-align: center;
+  margin-top: 15px;
+  padding: 0 20px;
+}
+
+/* Улучшенные стили для иконки успеха */
+.csuccess__checkmark-check {
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-origin: 50% 50%;
+  stroke-dasharray: 29;
+  stroke-dashoffset: 29;
+  opacity: 0;
+  animation: csuccess__stroke 0.5s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards, csuccess__checkmark-appear 0.6s ease-out 1.2s forwards;
+}
+
+@keyframes csuccess__checkmark-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }

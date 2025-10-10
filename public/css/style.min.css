@@ -3414,6 +3414,14 @@ img.lazyloaded {
 .tdrop::-webkit-scrollbar-track {
   background: #fff;
 }
+.search__item {
+  position: relative;
+  padding: 15px 13px;
+} 
+.search__item--with-photo {
+  padding-left: 60px;
+  min-height: 56px;
+}
 
 :root {
   scroll-behavior: smooth;
@@ -12125,4 +12133,122 @@ textarea.rwadd__comment {
 
 .comm__more--hide {
   display: none;
+}
+
+/* Улучшенные стили для поиска */
+.search__no-results {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  font: 15px/17px "sf pro display";
+}
+
+.search__item:hover {
+  background-color: #f8f9fa;
+}
+
+.search__item:last-child {
+  border-bottom: none;
+}
+
+.tdrop__option:hover {
+  background-color: #f8f9fa;
+}
+
+.tdrop__option:last-child {
+  border-bottom: none;
+}
+
+/* Анимация появления результатов поиска */
+.tippy-box[data-theme~=search] {
+  animation: searchDropdownFadeIn 0.2s ease-out;
+}
+
+@keyframes searchDropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Улучшенные стили для мобильной версии */
+.html--mobile .search__item {
+  padding: 12px 15px;
+}
+
+.html--mobile .search__item--with-photo {
+  padding-left: 55px;
+  min-height: 50px;
+}
+
+.html--mobile .search__photo {
+  width: 32px;
+  height: 32px;
+}
+
+.html--mobile .search__title {
+  font: 600 15px/18px "sf pro display";
+}
+
+.html--mobile .search__sub {
+  font: 14px/16px "sf pro display";
+}
+
+/* Стили для подсветки блюда при поиске */
+.ddish--highlight {
+  box-shadow: 0 0 20px rgba(0, 174, 239, 0.5) !important;
+  transition: box-shadow 0.3s ease;
+}
+
+/* Улучшенная анимация скролла */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Стили для текста в блоке успеха */
+.csuccess__text {
+  font: 400 19px / 26px "sf pro display";
+  color: #333;
+  text-align: center;
+  margin-top: 15px;
+  padding: 0 20px;
+}
+
+/* Улучшенные стили для иконки успеха */
+.csuccess__checkmark-check {
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform-origin: 50% 50%;
+  stroke-dasharray: 29;
+  stroke-dashoffset: 29;
+  opacity: 0;
+  animation: csuccess__stroke 0.5s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards, csuccess__checkmark-appear 0.6s ease-out 1.2s forwards;
+}
+
+@keyframes csuccess__checkmark-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Дополнительные стили для мобильной версии */
+@media (max-width: 768px) {
+  .ddish--highlight {
+    box-shadow: 0 0 15px rgba(0, 174, 239, 0.4) !important;
+  }
 }
