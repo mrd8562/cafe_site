@@ -56,7 +56,7 @@ app.post('/api/order', async (req, res) => {
         // Бизнес-правила доставки
         const DELIVERY_MIN_ORDER = 20; // руб.
         const DELIVERY_FREE_FROM = 40; // руб.
-        const DELIVERY_FEE = 8; // руб.
+        const DELIVERY_FEE = 6; // руб.
 
         const orderData = {
             customerName: payload.name || '',
@@ -132,6 +132,93 @@ app.post('/api/order', async (req, res) => {
     } catch (err) {
         console.error('Ошибка обработки /api/order:', err);
         return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    }
+});
+
+app.post('/api/report', async (req, res) => {
+    try {
+        const payload = req.body || {};
+        const name = String(payload.name || '').trim();
+        const phone = String(payload.phone || '').trim();
+        const message = String(payload.message || '').trim();
+        const acceptedPolicy = Boolean(payload.acceptedPolicy);
+        const page = String(payload.page || '').trim();
+        const source = String(payload.source || '').trim();
+        const phoneDigits = phone.replace(/[^\d]/g, '');
+
+        if (name.length < 2) {
+            return res.status(400).json({ success: false, message: 'Введите имя (минимум 2 символа).' });
+        }
+        if (phoneDigits.length < 7) {
+            return res.status(400).json({ success: false, message: 'Введите корректный номер телефона.' });
+        }
+        if (message.length < 10) {
+            return res.status(400).json({ success: false, message: 'Опишите проблему подробнее (минимум 10 символов).' });
+        }
+        if (!acceptedPolicy) {
+            return res.status(400).json({ success: false, message: 'Подтвердите согласие на обработку персональных данных.' });
+        }
+
+        const reportData = {
+            name,
+            phone,
+            phoneDigits,
+            message,
+            acceptedPolicy,
+            page: page || req.headers.referer || '',
+            source: source || req.deviceType || '',
+            deviceType: req.deviceType,
+            ip: req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip,
+            userAgent: req.headers['user-agent'] || '',
+            timestamp: payload.timestamp || new Date().toISOString()
+        };
+
+        const ok = await telegramService.sendSupportMessage(reportData);
+        if (!ok) {
+            return res.status(502).json({ success: false, message: 'Не удалось отправить сообщение в Telegram.' });
+        }
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('Ошибка обработки /api/report:', error);
+        return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера.' });
+    }
+});
+
+app.post('/api/recall', async (req, res) => {
+    try {
+        const payload = req.body || {};
+        const phoneRaw = String(payload.phone || '').trim();
+        const phoneDigits = phoneRaw.replace(/[^\d]/g, '');
+        const city = String(payload.city || '').trim();
+        const company = String(payload.company || '').trim();
+        const page = String(payload.page || '').trim();
+        const source = String(payload.source || '').trim() || req.deviceType || '';
+
+        if (phoneDigits.length < 7) {
+            return res.status(400).json({ success: false, message: 'Введите корректный номер телефона.' });
+        }
+
+        const recallData = {
+            phone: phoneRaw,
+            phoneDigits,
+            city,
+            company,
+            page: page || req.headers.referer || '',
+            source,
+            deviceType: req.deviceType,
+            timestamp: payload.timestamp || new Date().toISOString()
+        };
+
+        const ok = await telegramService.sendCallbackRequest(recallData);
+        if (!ok) {
+            return res.status(502).json({ success: false, message: 'Не удалось отправить заявку.' });
+        }
+
+        return res.json({ success: true });
+    } catch (error) {
+        console.error('Ошибка обработки /api/recall:', error);
+        return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера.' });
     }
 });
 
