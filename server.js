@@ -1,8 +1,10 @@
 require('dotenv').config();
 const express = require('express');
+const session = require('express-session');
 const bodyParser = require('body-parser');
 const path = require('path');
 const deviceDetector = require('./middleware/deviceDetector');
+const authMiddleware = require('./middleware/authMiddleware');
 const telegramService = require('./services/telegramService');
 
 
@@ -20,11 +22,13 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // Динамическая настройка путей для разных устройств
+// Замените текущий блок на этот:
 app.use((req, res, next) => {
-
-    // Пропуск девтула
-    if (req.url.startsWith('/.well-known/')) { 
-        return res.status(204).end();
+    // Пропускаем админку и dev-пути
+    if (req.url.startsWith('/admin') || req.url.startsWith('/.well-known/')) {
+        // Восстанавливаем views в корень (где лежит папка admin/)
+        app.set('views', path.join(__dirname, 'views'));
+        return next();
     }
 
     if (req.deviceType === 'mobile') {
@@ -134,6 +138,161 @@ app.post('/api/order', async (req, res) => {
         return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
     }
 });
+
+
+
+// Сессии (обязательно для хранения состояния админа)
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false } // true если HTTPS
+}));
+
+// Моковая база админов (в реальном проекте — из БД)
+// const ADMINS = [
+//     { username: 'admin', password: 'secret123' } // Замените на хэшированный пароль!
+// ];
+
+
+
+const adminService = require('./services/adminService');
+
+// ... остальной код ...
+
+// 👇 Сначала — маршруты, которые НЕ требуют авторизации
+app.get('/admin/login', (req, res) => {
+    res.render('admin/login');
+});
+
+// server.js — после подключения db и adminAuthService
+
+const adminAuthService = require('./services/adminAuthService');
+
+app.post('/admin/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    try {
+        const isValid = await adminAuthService.validateAdminPassword(username, password);
+
+        if (isValid) {
+            // Получим полную информацию об админе (можно расширить)
+            const admin = await adminAuthService.getAdminByUsername(username);
+            req.session.admin = {
+                id: admin.admin_id,
+                username: admin.username
+            };
+            return res.redirect('/admin');
+        }
+
+        res.render('admin/login', { error: 'Неверный логин или пароль' });
+    } catch (err) {
+        console.error('Ошибка входа:', err);
+        res.render('admin/login', { error: 'Ошибка сервера' });
+    }
+});
+
+app.get('/admin/logout', (req, res) => {
+    req.session.destroy(() => {
+        res.redirect('/admin/login');
+    });
+});
+
+// 👇 Только ПОСЛЕ этого — защищаем остальные /admin/* маршруты
+app.use('/admin', authMiddleware.authenticateAdmin);
+
+// 👇 Защищённые маршруты
+app.get('/admin', async (req, res) => {
+    try {
+        // Получаем меню
+        const menu = adminService.getMenu();
+
+        // Моковые данные (позже заменим на реальные из БД)
+        const data = {
+            username: req.session.admin.username, // ← берём из сессии
+            menu: menu,
+            ordersToday: 12,
+            galleryCount: 24,
+            promotions: [
+                { id: 1, title: "Скидка 20% по четвергам", active: true },
+                { id: 2, title: "Бесплатная доставка от 40 руб.", active: true }
+            ],
+            recentOrders: [
+                {
+                    time: "14:35",
+                    name: "Анна",
+                    phone: "+375 29 123-45-67",
+                    total: 38.50,
+                    type: "Доставка",
+                    status: "Новый",
+                    statusClass: "new"
+                },
+                {
+                    time: "13:20",
+                    name: "Иван",
+                    phone: "+375 33 987-65-43",
+                    total: 52.00,
+                    type: "Самовывоз",
+                    status: "Готовится",
+                    statusClass: "process"
+                },
+                {
+                    time: "12:15",
+                    name: "Мария",
+                    phone: "+375 44 555-55-55",
+                    total: 29.90,
+                    type: "Доставка",
+                    status: "Выполнен",
+                    statusClass: "done"
+                }
+            ]
+        };
+
+        res.render('admin/dashboard', data);
+
+    } catch (err) {
+        console.error('Ошибка рендера dashboard:', err);
+        res.status(500).send('Ошибка сервера');
+    }
+});
+
+app.get('/admin/menu', (req, res) => {
+    const menu = adminService.getMenu();
+    res.render('admin/menu', { menu });
+});
+
+// ... остальные /admin/* маршруты ...
+
+app.post('/admin/menu/add', (req, res) => {
+    const newItem = {
+        name: req.body.name,
+        price: parseFloat(req.body.price),
+        category: req.body.category
+    };
+    adminService.addMenuItem(newItem);
+    res.redirect('/admin/menu');
+});
+
+app.post('/admin/menu/update/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    const updatedItem = {
+        name: req.body.name,
+        price: parseFloat(req.body.price),
+        category: req.body.category
+    };
+    adminService.updateMenuItem(id, updatedItem);
+    res.redirect('/admin/menu');
+});
+
+app.get('/admin/menu/delete/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    adminService.deleteMenuItem(id);
+    res.redirect('/admin/menu');
+});
+
+
+
+
 
 app.listen(PORT, () => {
     console.log(`🚀 Сервер запущен на http://localhost:${PORT}`);

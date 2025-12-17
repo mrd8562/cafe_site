@@ -102,25 +102,25 @@ class TelegramService {
                     const unit = price.toFixed(2);
                     const extended = (price * qty).toFixed(2);
                     toppingsSum += price * qty;
-                    return `➕ ${t.name} — ${qty} × ${unit} ₽ = ${extended} ₽`;
+                    return `➕ ${t.name} — ${qty} × ${unit} BYN = ${extended} BYN`;
                 }).join('\n   ');
                 toppingsText = `\n   ${list}`;
             }
 
-            message += `${idx + 1}. ${item.name}${weightText} — ${item.quantity} × ${Number(item.price || 0).toFixed(2)} ₽ = ${lineTotal} ₽${toppingsText}\n`;
+            message += `${idx + 1}. ${item.name}${weightText} — ${item.quantity} × ${Number(item.price || 0).toFixed(2)} BYN = ${lineTotal} BYN${toppingsText}\n`;
             if (group.toppings.length > 0) {
                 // Итог по группе: базовое блюдо + начинки
                 const groupTotal = baseTotalNum + toppingsSum;
-                message += ` 🟰 Общая цена с начинкой: ${groupTotal.toFixed(2)} ₽\n---------------------------------------\n`;
+                message += ` 🟰 Общая цена с начинкой: ${groupTotal.toFixed(2)} BYN\n---------------------------------------\n`;
             }
         });
 
         if (Number(deliveryFee) > 0) {
-            message += `\n<b>🚚 Доставка:</b> ${Number(deliveryFee).toFixed(2)} ₽`;
+            message += `\n<b>🚚 Доставка:</b> ${Number(deliveryFee).toFixed(2)} BYN`;
         } else if ((type || '').includes('Доставка')) {
             message += `\n<b>🚚 Доставка:</b> бесплатно`;
         }
-        message += `\n<b>💰 Итого:</b> ${Number(totalAmount || 0).toFixed(2)} ₽\n`;
+        message += `\n<b>💰 Итого:</b> ${Number(totalAmount || 0).toFixed(2)} BYN\n`;
         message += `<b>⏰ Время заявки:</b> ${new Date().toLocaleString('ru-RU')}`;
 
         return message;

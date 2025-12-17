@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title><%= title %> — Админка 180 Градусов</title>
+    <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+    <header>
+        <h1>Админка — 180 Градусов</h1>
+        <nav>
+            <a href="/admin">Главная</a>
+            <a href="/admin/menu">Меню</a>
+            <a href="/admin/gallery">Галерея</a>
+            <a href="/admin/logout">Выход</a>
+        </nav>
+    </header>
+
+    <main>
+        <%- body %>
+    </main>
+
+    <script src="/js/admin/main.js"></script>
+</body>
+</html>

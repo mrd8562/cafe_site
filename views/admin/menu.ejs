@@ -1,0 +1,40 @@
+<%- include('../admin/layout', { title: 'Управление меню' }) %>
+
+<div class="menu-admin">
+    <h2>Меню</h2>
+
+    <!-- Форма добавления -->
+    <form method="POST" action="/admin/menu/add">
+        <input type="text" name="name" placeholder="Название" required>
+        <input type="number" step="0.01" name="price" placeholder="Цена" required>
+        <input type="text" name="category" placeholder="Категория" required>
+        <button type="submit">Добавить</button>
+    </form>
+
+    <!-- Таблица меню -->
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Название</th>
+                <th>Цена</th>
+                <th>Категория</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% menu.forEach(item => { %>
+                <tr>
+                    <td><%= item.id %></td>
+                    <td><%= item.name %></td>
+                    <td><%= item.price %></td>
+                    <td><%= item.category %></td>
+                    <td>
+                        <a href="/admin/menu/edit/<%= item.id %>">Редактировать</a>
+                        <a href="/admin/menu/delete/<%= item.id %>" onclick="return confirm('Удалить?')">Удалить</a>
+                    </td>
+                </tr>
+            <% }) %>
+        </tbody>
+    </table>
+</div>
