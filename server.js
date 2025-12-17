@@ -60,7 +60,7 @@ app.post('/api/order', async (req, res) => {
         // Бизнес-правила доставки
         const DELIVERY_MIN_ORDER = 20; // руб.
         const DELIVERY_FREE_FROM = 40; // руб.
-        const DELIVERY_FEE = 8; // руб.
+        const DELIVERY_FEE = 6; // руб.
 
         const orderData = {
             customerName: payload.name || '',

@@ -37,6 +37,28 @@ class TelegramService {
         }
     }
 
+    async sendSupportMessage(reportData) {
+        try {
+            const message = this.formatSupportMessage(reportData);
+            await this.bot.sendMessage(this.chatId, message, { parse_mode: 'HTML' });
+            return true;
+        } catch (error) {
+            console.error('Ошибка отправки обращения поддержки в Telegram:', error);
+            return false;
+        }
+    }
+
+    async sendCallbackRequest(callbackData = {}) {
+        try {
+            const message = this.formatCallbackMessage(callbackData);
+            await this.bot.sendMessage(this.chatId, message, { parse_mode: 'HTML' });
+            return true;
+        } catch (error) {
+            console.error('Ошибка отправки запроса перезвона в Telegram:', error);
+            return false;
+        }
+    }
+
     formatOrderMessage(orderData) {
         const {
             customerName,
@@ -124,6 +146,79 @@ class TelegramService {
         message += `<b>⏰ Время заявки:</b> ${new Date().toLocaleString('ru-RU')}`;
 
         return message;
+    }
+
+    formatSupportMessage(reportData = {}) {
+        const {
+            name,
+            phone,
+            message,
+            page,
+            source,
+            deviceType,
+            ip,
+            userAgent,
+            timestamp
+        } = reportData;
+
+        const submittedAt = timestamp ? new Date(timestamp) : new Date();
+
+        let text = `<b>⚠️ Новое обращение в поддержку</b>\n\n`;
+        text += `<b>👤 Имя:</b> ${this.escapeHtml(name || '—')}\n`;
+        text += `<b>📞 Телефон:</b> ${this.escapeHtml(phone || '—')}\n`;
+        text += `<b>⏰ Время:</b> ${submittedAt.toLocaleString('ru-RU')}\n`;
+        if (page) {
+            text += `<b>📄 Страница:</b> ${this.escapeHtml(page)}\n`;
+        }
+        if (source || deviceType) {
+            text += `<b>📱 Устройство:</b> ${this.escapeHtml(source || deviceType || '')}\n`;
+        }
+        if (ip) {
+            text += `<b>🌐 IP:</b> ${this.escapeHtml(ip)}\n`;
+        }
+        if (userAgent) {
+            text += `<b>🧭 Браузер:</b> ${this.escapeHtml(userAgent)}\n`;
+        }
+
+        text += `\n<b>💬 Сообщение:</b>\n${this.escapeHtml(message || '')}`;
+        return text;
+    }
+
+    formatCallbackMessage(data = {}) {
+        const {
+            phone,
+            phoneDigits,
+            city,
+            company,
+            page,
+            source,
+            deviceType,
+            timestamp
+        } = data;
+
+        const submittedAt = timestamp ? new Date(timestamp) : new Date();
+
+        let text = `<b>📞 Новая заявка на звонок</b>\n\n`;
+        text += `<b>📞 Телефон:</b> ${this.escapeHtml(phone || '—')}\n`;
+        if (phoneDigits) {
+            text += `<b>🔢 Номер (цифры):</b> ${this.escapeHtml(phoneDigits)}\n`;
+        }
+        if (page) {
+            text += `<b>📄 Страница:</b> ${this.escapeHtml(page)}\n`;
+        }
+        if (source || deviceType) {
+            text += `<b>📱 Источник:</b> ${this.escapeHtml(source || deviceType || '')}\n`;
+        }
+        text += `<b>⏰ Время:</b> ${submittedAt.toLocaleString('ru-RU')}`;
+
+        return text;
+    }
+
+    escapeHtml(value = '') {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
     }
 }
 
