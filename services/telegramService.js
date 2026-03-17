@@ -37,6 +37,29 @@ class TelegramService {
         }
     }
 
+    async sendOnlinePaymentAttemptNotification(orderData) {
+        try {
+            const header = '🎉 КЛИЕНТ ПЫТАЕТСЯ ОПЛАТИТЬ ОНЛАЙН!\n⏳ Ожидайте 15 минут. Если оплата не совершена — звоните клиенту и уточняйте.';
+            const message = this.formatOrderMessage(orderData, { header });
+            await this.bot.sendMessage(this.chatId, message, { parse_mode: 'HTML' });
+            return true;
+        } catch (error) {
+            console.error('Ошибка отправки в Telegram (attempt):', error);
+            return false;
+        }
+    }
+
+    async sendOnlinePaymentSuccessNotification({ amountByn, orderData }) {
+        try {
+            const message = this.formatPaymentSuccessMessage({ amountByn, orderData });
+            await this.bot.sendMessage(this.chatId, message, { parse_mode: 'HTML' });
+            return true;
+        } catch (error) {
+            console.error('Ошибка отправки в Telegram (paid):', error);
+            return false;
+        }
+    }
+
     async sendSupportMessage(reportData) {
         try {
             const message = this.formatSupportMessage(reportData);
@@ -59,7 +82,7 @@ class TelegramService {
         }
     }
 
-    formatOrderMessage(orderData) {
+    formatOrderMessage(orderData, { header } = {}) {
         const {
             customerName,
             phone,
@@ -77,7 +100,8 @@ class TelegramService {
             deliveryFee = 0
         } = orderData;
 
-        let message = `<b>🎉 НОВЫЙ ЗАКАЗ!</b>\n\n`;
+        const safeHeader = header ? this.escapeHtml(header) : '🎉 НОВЫЙ ЗАКАЗ!';
+        let message = `<b>${safeHeader}</b>\n\n`;
         message += `<b>👤 Клиент:</b> ${customerName}\n`;
         message += `<b>📞 Телефон:</b> ${phone}\n`;
         if (email) message += `<b>📧 Email:</b> ${email}\n`;
@@ -146,6 +170,21 @@ class TelegramService {
         message += `<b>⏰ Время заявки:</b> ${new Date().toLocaleString('ru-RU')}`;
 
         return message;
+    }
+
+    formatPaymentSuccessMessage({ amountByn, orderData }) {
+        const name = this.escapeHtml(orderData?.customerName || '—');
+        const phone = this.escapeHtml(orderData?.phone || '—');
+        const city = this.escapeHtml(orderData?.city || 'Новополоцк');
+        const address = this.escapeHtml(orderData.address);
+        const amount = Number(amountByn || 0).toFixed(2);
+
+        let text = `<b>✅ УСПЕШНО ОПЛАЧЕНО ${amount} BYN!!!</b>\n`;
+        text += `<b>👤 Клиент:</b> ${name}\n`;
+        text += `<b>📞 Телефон:</b> ${phone}\n`;
+        text += `<b>🏙️ Город:</b> ${city}\n`;
+        if (address) text += `<b>📍 Адрес:</b> ${address}`;
+        return text;
     }
 
     formatSupportMessage(reportData = {}) {

@@ -11,6 +11,78 @@ const telegramService = require('./services/telegramService');
 const app = express();
 const PORT = Number(process.env.PORT || 2222);
 
+function normalizeOrderPayload(payload = {}) {
+    // Бизнес-правила доставки
+    const DELIVERY_MIN_ORDER = 40; // руб.
+    const DELIVERY_FREE_FROM = 50; // руб.
+    const DELIVERY_FEE = 6; // руб.
+
+    const orderData = {
+        customerName: payload.name || '',
+        phone: payload.phone || '',
+        email: payload.email || '',
+        city: payload.city || 'Новополоцк',
+        address: payload.address || '',
+        type: payload.type || '',
+        deliveryType: payload.deliveryType || '',
+        preorderDay: payload.preorderDay || null,
+        preorderTime: payload.preorderTime || null,
+        paymentType: payload.paymentType || '',
+        comment: payload.comment || '',
+        acceptedPolicy: Boolean(payload.acceptedPolicy),
+        items: Array.isArray(payload.items) ? payload.items.map((order) => {
+            // структура из app.min.js: { dish: { name, price, weight, quantity, imageUrl }, toppings: [{name, quantity}] }
+            if (order && order.dish) {
+                return {
+                    name: order.dish.name,
+                    quantity: Number(order.dish.quantity || 1),
+                    price: Number(order.dish.price || 0),
+                    weight: order.dish.weight,
+                    imageUrl: order.dish.imageUrl,
+                    toppings: Array.isArray(order.toppings) ? order.toppings.map(t => ({
+                        name: t.name,
+                        quantity: Number(t.quantity || 1),
+                        price: Number(t.price || 0)
+                    })) : []
+                };
+            }
+            // запасной вариант упрощенной структуры
+            return {
+                name: order?.name || order?.title || 'Позиция',
+                quantity: Number(order?.quantity || order?.count || 1),
+                price: Number((order?.price || order?.cost || 0).toString().replace(/[^\d.]/g, '')),
+                toppings: []
+            };
+        }) : [],
+        totalAmount: 0,
+        deliveryFee: 0
+    };
+
+    // Расчёт суммы позиций
+    const itemsSubtotal = (orderData.items || []).reduce((sum, it) => {
+        const qty = Number(it.quantity || 1);
+        const price = Number(it.price || 0);
+        return sum + qty * price;
+    }, 0);
+
+    const isDelivery = (orderData.type || '').includes('Доставка');
+    if (isDelivery) {
+        if (itemsSubtotal < DELIVERY_MIN_ORDER) {
+            return { ok: false, errorMessage: `Минимальный заказ для доставки — ${DELIVERY_MIN_ORDER} руб.` };
+        }
+        orderData.deliveryFee = itemsSubtotal >= DELIVERY_FREE_FROM ? 0 : DELIVERY_FEE;
+    } else {
+        orderData.deliveryFee = 0;
+    }
+
+    orderData.totalAmount = Number((itemsSubtotal + (orderData.deliveryFee || 0)).toFixed(2));
+    return { ok: true, orderData };
+}
+
+function makeTrackingId() {
+    return `cafe180_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -51,85 +123,49 @@ app.get('/', (req, res) => {
     });
 });
 
+// Сообщение в Telegram о попытке онлайн-оплаты (до открытия виджета).
+app.post('/api/order/attempt', async (req, res) => {
+    try {
+        const payload = req.body || {};
+        const normalized = normalizeOrderPayload(payload);
+        if (!normalized.ok) {
+            return res.status(400).json({ success: false, message: normalized.errorMessage || 'Некорректные данные заказа' });
+        }
+        const orderData = normalized.orderData;
+        if ((orderData.paymentType || '') !== 'Картой') {
+            return res.status(400).json({ success: false, message: 'Неверный способ оплаты' });
+        }
+        const ok = await telegramService.sendOnlinePaymentAttemptNotification(orderData);
+        if (!ok) return res.status(502).json({ success: false, message: 'Не удалось отправить в Telegram' });
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('Ошибка /api/order/attempt:', err);
+        return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+    }
+});
+
 // Прием заказа с фронтенда и отправка уведомления в Telegram
 app.post('/api/order', async (req, res) => {
     try {
         const payload = req.body || {};
+        const normalized = normalizeOrderPayload(payload);
+        if (!normalized.ok) {
+            return res.status(400).json({ success: false, message: normalized.errorMessage || 'Некорректные данные заказа' });
+        }
+        const orderData = normalized.orderData;
 
-        // Прокидываем все поля, ожидаемые фронтом, и готовим items для сервиса
-        // Бизнес-правила доставки
-        const DELIVERY_MIN_ORDER = 20; // руб.
-        const DELIVERY_FREE_FROM = 40; // руб.
-        const DELIVERY_FEE = 6; // руб.
-
-        const orderData = {
-            customerName: payload.name || '',
-            phone: payload.phone || '',
-            email: payload.email || '',
-            city: payload.city || 'Новополоцк',
-            address: payload.address || '',
-            type: payload.type || '',
-            deliveryType: payload.deliveryType || '',
-            preorderDay: payload.preorderDay || null,
-            preorderTime: payload.preorderTime || null,
-            paymentType: payload.paymentType || '',
-            comment: payload.comment || '',
-            acceptedPolicy: Boolean(payload.acceptedPolicy),
-            items: Array.isArray(payload.items) ? payload.items.map((order) => {
-                // структура из app.min.js: { dish: { name, price, weight, quantity, imageUrl }, toppings: [{name, quantity}] }
-                if (order && order.dish) {
-                    return {
-                        name: order.dish.name,
-                        quantity: Number(order.dish.quantity || 1),
-                        price: Number(order.dish.price || 0),
-                        weight: order.dish.weight,
-                        imageUrl: order.dish.imageUrl,
-                        toppings: Array.isArray(order.toppings) ? order.toppings.map(t => ({
-                            name: t.name,
-                            quantity: Number(t.quantity || 1),
-                            price: Number(t.price || 0)
-                        })) : []
-                    };
-                }
-                // запасной вариант упрощенной структуры
-                return {
-                    name: order?.name || order?.title || 'Позиция',
-                    quantity: Number(order?.quantity || order?.count || 1),
-                    price: Number((order?.price || order?.cost || 0).toString().replace(/[^\d.]/g, '')),
-                    toppings: []
-                };
-            }) : [],
-            // Заполним далее после расчётов
-            totalAmount: 0,
-            deliveryFee: 0
-        };
-
-        // Расчёт суммы позиций
-        const itemsSubtotal = (orderData.items || []).reduce((sum, it) => {
-            const qty = Number(it.quantity || 1);
-            const price = Number(it.price || 0);
-            return sum + qty * price;
-        }, 0);
-
-        const isDelivery = (orderData.type || '').includes('Доставка');
-        if (isDelivery) {
-            // Проверка минимального заказа для доставки
-            if (itemsSubtotal < DELIVERY_MIN_ORDER) {
-                return res.status(400).json({
-                    success: false,
-                    message: `Минимальный заказ для доставки — ${DELIVERY_MIN_ORDER} руб.`
-                });
+        // Если заказ уже оплачен картой (успешный статус из виджета) —
+        // сначала шлём сообщение "успешно оплачено", затем обычное "новый заказ".
+        if ((orderData.paymentType || '') === 'Картой' && Boolean(payload.paid)) {
+            const paidAmount = Number(orderData.totalAmount || 0);
+            const okPaid = await telegramService.sendOnlinePaymentSuccessNotification({ amountByn: paidAmount, orderData });
+            if (!okPaid) {
+                return res.status(502).json({ success: false, message: 'Не удалось отправить уведомление об оплате в Telegram' });
             }
-            // Расчёт стоимости доставки
-            orderData.deliveryFee = itemsSubtotal >= DELIVERY_FREE_FROM ? 0 : DELIVERY_FEE;
-        } else {
-            orderData.deliveryFee = 0;
         }
 
-        orderData.totalAmount = Number((itemsSubtotal + (orderData.deliveryFee || 0)).toFixed(2));
-
-        const ok = await telegramService.sendOrderNotification(orderData);
-        if (!ok) {
+        const okOrder = await telegramService.sendOrderNotification(orderData);
+        if (!okOrder) {
             return res.status(502).json({ success: false, message: 'Не удалось отправить в Telegram' });
         }
         return res.json({ success: true });
