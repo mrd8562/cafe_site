@@ -6,6 +6,7 @@ const path = require('path');
 const deviceDetector = require('./middleware/deviceDetector');
 const authMiddleware = require('./middleware/authMiddleware');
 const telegramService = require('./services/telegramService');
+const axios = require('axios');
 
 
 const app = express();
@@ -154,10 +155,31 @@ app.post('/api/order', async (req, res) => {
         }
         const orderData = normalized.orderData;
 
+        const trackingId = (payload.trackingId && String(payload.trackingId).includes('cafe180_')) ? String(payload.trackingId) : null;
+        const fetchReceiptUrl = async () => {
+            const shopId = process.env.BEPAID_SHOP_ID || '';
+            const secret = process.env.BEPAID_SECRET_KEY || '';
+            if (!shopId || !secret || !trackingId) return null;
+            const auth = Buffer.from(`${shopId}:${secret}`).toString('base64');
+            const url = `https://gateway.bepaid.by/v2/transactions/tracking_id/${encodeURIComponent(trackingId)}`;
+            const resp = await axios.get(url, {
+                headers: { 'Authorization': `Basic ${auth}`, 'Accept': 'application/json' },
+                timeout: 15000
+            });
+            const txs = resp.data?.transactions || resp.data?.transaction || resp.data;
+            const arr = Array.isArray(txs) ? txs : (txs ? [txs] : []);
+            const first = arr[0]?.transaction || arr[0];
+            return first?.receipt_url || null;
+        };
+
         // Если заказ уже оплачен картой (успешный статус из виджета) —
         // сначала шлём сообщение "успешно оплачено", затем обычное "новый заказ".
         if ((orderData.paymentType || '') === 'Картой' && Boolean(payload.paid)) {
             const paidAmount = Number(orderData.totalAmount || 0);
+            let receiptUrl = null;
+            try { receiptUrl = await fetchReceiptUrl(); } catch (e) { /* ignore */ }
+            if (receiptUrl) orderData.receiptUrl = receiptUrl;
+
             const okPaid = await telegramService.sendOnlinePaymentSuccessNotification({ amountByn: paidAmount, orderData });
             if (!okPaid) {
                 return res.status(502).json({ success: false, message: 'Не удалось отправить уведомление об оплате в Telegram' });

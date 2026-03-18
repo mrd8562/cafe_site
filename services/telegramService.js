@@ -97,7 +97,8 @@ class TelegramService {
             comment,
             items = [],
             totalAmount,
-            deliveryFee = 0
+            deliveryFee = 0,
+            receiptUrl
         } = orderData;
 
         const safeHeader = header ? this.escapeHtml(header) : '🎉 НОВЫЙ ЗАКАЗ!';
@@ -167,6 +168,13 @@ class TelegramService {
             message += `\n<b>🚚 Доставка:</b> бесплатно`;
         }
         message += `\n<b>💰 Итого:</b> ${Number(totalAmount || 0).toFixed(2)} BYN\n`;
+        if (receiptUrl) {
+            const safeUrl = this.escapeHtml(String(receiptUrl));
+            message += `<b>🧾 Чек bePaid:</b> <a href="${safeUrl}">Открыть чек</a>\n`;
+            message += `<b>🏦 Кабинет bePaid:</b> <a href="https://merchant.bepaid.by/merchant/dwh/orders">Открыть транзакции</a>\n`;
+            message += `<b>      Логин: <code>viking.buh@gmail.com</code></b>\n`;
+            message += `<b>      Пароль: <code>gGl0#bid0</code></b>\n`;
+        }
         message += `<b>⏰ Время заявки:</b> ${new Date().toLocaleString('ru-RU')}`;
 
         return message;
@@ -177,13 +185,19 @@ class TelegramService {
         const phone = this.escapeHtml(orderData?.phone || '—');
         const city = this.escapeHtml(orderData?.city || 'Новополоцк');
         const address = this.escapeHtml(orderData.address);
+        const receiptUrl = orderData?.receiptUrl ? this.escapeHtml(String(orderData.receiptUrl)) : '';
         const amount = Number(amountByn || 0).toFixed(2);
 
         let text = `<b>✅ УСПЕШНО ОПЛАЧЕНО ${amount} BYN!!!</b>\n`;
         text += `<b>👤 Клиент:</b> ${name}\n`;
         text += `<b>📞 Телефон:</b> ${phone}\n`;
         text += `<b>🏙️ Город:</b> ${city}\n`;
-        if (address) text += `<b>📍 Адрес:</b> ${address}`;
+        if (address) text += `<b>📍 Адрес:</b> ${address}\n`;
+        if (receiptUrl) text += `<b>🧾 Чек bePaid:</b> <a href="${receiptUrl}">Открыть чек</a>`;
+        if (receiptUrl) text += `\n`;
+        text += `<b>🏦 Кабинет bePaid:</b> <a href="https://merchant.bepaid.by/merchant/dwh/orders">Открыть транзакции</a>\n`;
+        text += `<b>      Логин: <code>viking.buh@gmail.com</code></b>\n`;
+        text += `<b>      Пароль: <code>gGl0#bid0</code></b>`;
         return text;
     }
 
